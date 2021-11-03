@@ -1,0 +1,199 @@
+p:Project = input;
+
+ProjectUses: output sum[string][time] of int;
+FileUses:    output sum[string][string][time] of int;
+
+Diamond:       map[string] of time;
+BinaryLit:     map[string] of time;
+Assert:        map[string] of time;
+AnnotUse:      map[string] of time;
+AnnotDefine:   map[string] of time;
+Enums:         map[string] of time;
+EnhancedFor:   map[string] of time;
+GenDefField:   map[string] of time;
+GenDefMethod:  map[string] of time;
+GenDefType:    map[string] of time;
+GenWildcard:   map[string] of time;
+GenExtends:    map[string] of time;
+GenSuper:      map[string] of time;
+MultiCatch:    map[string] of time;
+SafeVarargs:   map[string] of time;
+TryResources:  map[string] of time;
+UnderscoreLit: map[string] of time;
+Varargs:       map[string] of time;
+RepeatedAnnot: map[string] of time;
+Lambda:        map[string] of time;
+MethRefNew:    map[string] of time;
+MethRefSuper:  map[string] of time;
+MethRefExpr:   map[string] of time;
+DefaultMeth:   map[string] of time;
+RcvParam:      map[string] of time;
+ModuleDeclaration:					map[string] of time;
+ModuleModifier:						map[string] of time;
+OpensDir:							map[string] of time;
+ProvidesDir:						map[string] of time;
+RequiresDir:						map[string] of time;
+UsesDir: 							map[string] of time;
+ExportsDir: 						map[string] of time;
+TryResourcesFinal: 					map[string] of time;
+DiamondAnonyInnerClass: 			map[string] of time;
+PrivateInterfaceMeth: 				map[string] of time;
+SafeVarargsPrivateInstanceMeth: 	map[string] of time;
+LocalVarInference: 					map[string] of time;
+LocalVarLambda: 					map[string] of time;
+Yield: 								map[string] of time;
+Switch: 							map[string] of time;
+TextBlock: 							map[string] of time;
+
+Diamond2:       map[string] of ChangeKind;
+BinaryLit2:     map[string] of ChangeKind;
+Assert2:        map[string] of ChangeKind;
+AnnotUse2:      map[string] of ChangeKind;
+AnnotDefine2:   map[string] of ChangeKind;
+Enums2:         map[string] of ChangeKind;
+EnhancedFor2:   map[string] of ChangeKind;
+GenDefField2:   map[string] of ChangeKind;
+GenDefMethod2:  map[string] of ChangeKind;
+GenDefType2:    map[string] of ChangeKind;
+GenWildcard2:   map[string] of ChangeKind;
+GenExtends2:    map[string] of ChangeKind;
+GenSuper2:      map[string] of ChangeKind;
+MultiCatch2:    map[string] of ChangeKind;
+SafeVarargs2:   map[string] of ChangeKind;
+TryResources2:  map[string] of ChangeKind;
+UnderscoreLit2: map[string] of ChangeKind;
+Varargs2:       map[string] of ChangeKind;
+RepeatedAnnot2: map[string] of ChangeKind;
+Lambda2:        map[string] of ChangeKind;
+MethRefNew2:    map[string] of ChangeKind;
+MethRefSuper2:  map[string] of ChangeKind;
+MethRefExpr2:   map[string] of ChangeKind;
+DefaultMeth2:   map[string] of ChangeKind;
+RcvParam2:      map[string] of ChangeKind;
+ModuleDeclaration2: 				map[string] of time;
+ModuleModifier2: 					map[string] of time;
+OpensDir2: 							map[string] of time;
+ProvidesDir2: 						map[string] of time;
+RequiresDir2: 						map[string] of time;
+UsesDir2: 							map[string] of time;
+ExportsDir2: 						map[string] of time;
+TryResourcesFinal2: 				map[string] of time;
+DiamondAnonyInnerClass2: 			map[string] of time;
+PrivateInterfaceMeth2: 				map[string] of time;
+SafeVarargsPrivateInstanceMeth2: 	map[string] of time;
+LocalVarInference2: 				map[string] of time;
+LocalVarLambda2: 					map[string] of time;
+Yield2: 							map[string] of time;
+Switch2: 							map[string] of time;
+TextBlock2: 						map[string] of time;
+
+record_feature_use := function(fileMap: map[string] of time, kinds: map[string] of ChangeKind, commit_date: time, f: ChangedFile) {
+    if (haskey(fileMap, f.name))
+		return;
+
+	fileMap[f.name] = commit_date;
+	kinds[f.name] = f.change;
+};
+
+cur_date: time;
+cur_file: ChangedFile;
+in_field: bool;
+
+visit(input, visitor {
+	before node: ChangedFile -> {
+		if (!iskind("SOURCE_JAVA_JLS", node.kind) || node.change == ChangeKind.DELETED)
+			stop;
+		cur_file = node;
+	}
+	before node: Revision ->
+		if (int(node.commit_date) < 1) stop;
+		else cur_date = node.commit_date;
+	before node: Declaration -> {
+		found1 := false;
+		s1: set of string;
+		foreach (i: int; node.modifiers[i])
+			if (contains(s1, node.modifiers[i].annotation_name))
+				found1 = true;
+			else
+				add(s1, node.modifiers[i].annotation_name);
+		if (found1)
+			record_feature_use(RepeatedAnnot, RepeatedAnnot2, cur_date, cur_file);
+        if (node.kind == TypeKind.ANNOTATION)
+			record_feature_use(AnnotDefine, AnnotDefine2, cur_date, cur_file);
+		if (len(node.generic_parameters) > 0)
+			record_feature_use(GenDefType, GenDefType2, cur_date, cur_file);
+		if (node.kind == TypeKind.ENUM)
+			record_feature_use(Enums, Enums2, cur_date, cur_file);
+
+		in_field = true;
+		foreach (i: int; def(node.fields[i]))
+			visit(node.fields[i]);
+		in_field = false;
+	}
+
+	before node: Statement -> {
+		switch (node.kind) {
+		case StatementKind.ASSERT:
+			record_feature_use(Assert, Assert2, cur_date, cur_file);
+			break;
+		case StatementKind.CATCH:
+			if (strfind("|", node.variable_declaration.variable_type.name) > -1)
+				record_feature_use(MultiCatch, MultiCatch2, cur_date, cur_file);
+			break;
+		case StatementKind.TRY:
+			if (len(node.initializations) > 0)
+				record_feature_use(TryResources, TryResources2, cur_date, cur_file);
+			break;
+		case StatementKind.FOR:
+			if (def(node.variable_declaration))
+				record_feature_use(EnhancedFor, EnhancedFor2, cur_date, cur_file);
+			break;
+		case StatementKind.YIELD:
+			record_feature_use(Yield, Yield2, cur_date, cur_file);
+			break;
+		default:
+			break;
+		}
+	}
+
+});
+
+changekind_to_string := function(kind: ChangeKind) : string {
+	if (kind == ChangeKind.ADDED)
+		return "Add";
+	return "Change";
+};
+
+output_feature_first_use := function(name: string, fileMap: map[string] of time, kinds: map[string] of ChangeKind) {
+    keyset := keys(fileMap);
+    if (len(keyset) == 0) return;
+
+    minval:time = now();
+
+    for (i := 0; i < len(keyset); i++) {
+        minval = min(minval, fileMap[keyset[i]]);
+        FileUses[name][changekind_to_string(kinds[keyset[0]])][fileMap[keyset[i]]] << 1;
+    }
+
+    ProjectUses[name][minval] << 1;
+};
+
+output_feature_first_use("Yield", Yield, Yield2);
+output_feature_first_use("Diamond", Diamond, Diamond2);
+output_feature_first_use("BinaryLit", BinaryLit, BinaryLit2);
+output_feature_first_use("Assert", Assert, Assert2);
+output_feature_first_use("AnnotUse", AnnotUse, AnnotUse2);
+output_feature_first_use("AnnotDefine", AnnotDefine, AnnotDefine2);
+output_feature_first_use("Enums", Enums, Enums2);
+output_feature_first_use("EnhancedFor", EnhancedFor, EnhancedFor2);
+output_feature_first_use("GenDefField", GenDefField, GenDefField2);
+output_feature_first_use("GenDefMethod", GenDefMethod, GenDefMethod2);
+output_feature_first_use("GenDefType", GenDefType, GenDefType2);
+output_feature_first_use("GenWildcard", GenWildcard, GenWildcard2);
+output_feature_first_use("GenExtends", GenExtends, GenExtends2);
+output_feature_first_use("GenSuper", GenSuper, GenSuper2);
+output_feature_first_use("MultiCatch", MultiCatch, MultiCatch2);
+output_feature_first_use("SafeVarargs", SafeVarargs, SafeVarargs2);
+output_feature_first_use("TryResources", TryResources, TryResources2);
+output_feature_first_use("UnderscoreLit", UnderscoreLit, UnderscoreLit2);
+output_feature_first_use("Varargs", Varargs, Varargs2);

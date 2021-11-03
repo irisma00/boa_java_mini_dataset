@@ -1,0 +1,19 @@
+# how did # of commits for Java/SVN change over time?
+p: Project = input;
+counts: output sum[int] of int;
+testPrint: output collection of string;
+
+visit(p, visitor {
+	before n: Project -> 
+	{
+		testPrint<<n.name;
+		
+		if(!match(`^java$`, lowercase(n.main_language)))
+		{
+			stop;
+		}
+		
+	}	
+
+	before n: Revision -> counts[yearof(n.commit_date)] << 1;
+});
